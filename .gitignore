@@ -1,6 +1,4 @@
 docker-compose.yaml
 
-/db
-/logs
-/plugins
-/dags/__pycache__
+/airflow/*
+!/airflow/dags
