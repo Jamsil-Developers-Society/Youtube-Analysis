@@ -1,4 +1,5 @@
 docker-compose.yaml
 
 /airflow/*
-!/airflow/dags
+!/airflow/dags/
+/airflow/dags/__pycache__
