@@ -1,5 +1,36 @@
+# Frontend
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+# youtube-analysis-frontend/node_modules
+# youtube-analysis-frontend/.pnp
+# youtube-analysis-frontend/.pnp.js
+
+# # testing
+# youtube-analysis-frontend/coverage
+
+# # production
+# youtube-analysis-frontend/build
+
+# # misc
+# youtube-analysis-frontend/.DS_Store
+# youtube-analysis-frontend/.env.local
+# youtube-analysis-frontend/.env.development.local
+# youtube-analysis-frontend/.env.test.local
+# youtube-analysis-frontend/.env.production.local
+
+# youtube-analysis-frontend/npm-debug.log*
+# youtube-analysis-frontend/yarn-debug.log*
+# youtube-analysis-frontend/yarn-error.log*
+youtube-analysis-frontend
+
+# Backend
+
+
+# Airflow
 docker-compose.yaml
 
 /airflow/*
 !/airflow/dags/
 /airflow/dags/__pycache__
+/airflow/dags/*.json
