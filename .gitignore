@@ -1,3 +1,5 @@
+*.env
+
 # Frontend
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
@@ -28,9 +30,10 @@ youtube-analysis-frontend
 
 
 # Airflow
-docker-compose.yaml
-
 /airflow/*
 !/airflow/dags/
+!/airflow/docker-compose.yaml
 /airflow/dags/__pycache__
-/airflow/dags/*.json
+# /airflow/dags/*.json
+!/airflow/db/
+/airflow/db/*.json

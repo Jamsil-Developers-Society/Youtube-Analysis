@@ -1,4 +1,5 @@
 import os
+import json
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime, timedelta
@@ -63,7 +64,7 @@ default_args = {
 }
 
 dag = DAG(
-    'insert_data_from_api',
+    'search_videos_list',
     default_args=default_args,
     description='Export data from VWorld API, and insert to database',
     schedule_interval='@daily'
@@ -71,7 +72,7 @@ dag = DAG(
 
 # PythonOperator로 태스크 설정
 export_to_csv_task = PythonOperator(
-    task_id='insert_data_from_api',
+    task_id='search_videos_list',
     python_callable=insert_data_from_api,
     dag=dag
 )
