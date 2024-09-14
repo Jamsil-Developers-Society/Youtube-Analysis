@@ -1,0 +1,1 @@
+SELECT * FROM `{{ project }}.{{ dataset }}.{{ table }}` WHERE video_id = `{{ video_id }}`;

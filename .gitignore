@@ -27,7 +27,7 @@
 youtube-analysis-frontend
 
 # Backend
-
+/backend/json
 
 # Airflow
 /airflow/*
