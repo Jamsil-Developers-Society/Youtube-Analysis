@@ -1,13 +1,9 @@
 import os
-import json
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime, timedelta
-from google.cloud import bigquery
-from google.oauth2 import service_account
 
 import requests
-import xml.etree.ElementTree as ET
 import pandas as pd
 import sqlite3
 import logging
@@ -17,10 +13,10 @@ import logging
 
 def search_categories():
     # key = os.getenv("Google_Token")
-    key = "AIzaSyAi2Zm9LEW2z3dJJbfgtC-V8eAQw0trnqM"
-    logging.info("key : "+key)
+    # logging.info("key : "+key)
     try:
-        response = requests.get(f"https://www.googleapis.com/youtube/v3/videoCategories?key={ key }&regionCode=KR").json()
+        # response = requests.get(f"https://www.googleapis.com/youtube/v3/videoCategories?key={ key }&regionCode=KR").json()
+        response = requests.get(f"https://www.googleapis.com/youtube/v3/videoCategories?key=AIzaSyAi2Zm9LEW2z3dJJbfgtC-V8eAQw0trnqM&regionCode=KR").json()
         # print(response)
         logging.info(f"Total categories count : { len(response['items']) }")
 
