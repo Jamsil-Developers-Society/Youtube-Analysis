@@ -29,12 +29,12 @@ def search_videos_list():
     #api_key = os.getenv("Google_Token")
 
     db_folder_path = os.path.join(os.path.dirname(__file__), '..', 'db')  # db 폴더의 경로
-    db_path = os.path.join(db_folder_path, 'serach_videos_list.db')  # db 폴더 안의 serach_videos_list.db 경로
+    db_path = os.path.join(db_folder_path, 'videos.db')  # db 폴더 안의 videos.db 경로
     conn = sqlite3.connect(db_path)
     rows = pd.DataFrame(columns=['id', 'categoryId', 'publishedAt', 'channelId', 'title', 'description'])
 
     # 테이블이 이미 존재하는 경우 기존 데이터를 불러옴
-    query = "SELECT id FROM search_videos_list"
+    query = "SELECT id FROM videos"
     try:
         existing_videos = pd.read_sql(query, conn)
     except Exception:
@@ -79,7 +79,7 @@ def search_videos_list():
         logging.info(f"가져온 데이터: \n{rows}")
 
         if not rows.empty:
-            rows.to_sql('search_videos_list', conn, if_exists='append', index=False)
+            rows.to_sql('videos', conn, if_exists='append', index=False)
             logger.info(f"{len(rows)}개의 비디오 데이터를 추가했습니다. ")
         else:
             logger.info("새로 추가할 비디오 데이터가 없습니다.")
