@@ -55,5 +55,15 @@ async def search_video_sessions(video_id:int=0):
 
 #     return result.to_json()
 
+@app.get("/categories")
+async def search_video_sessions():
+    template = env.get_template('sql/select_categories.sql')
+
+    query = template.render()
+    conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'airflow', 'db', 'categories.db'))
+    result = pd.read_sql(query, conn)
+
+    return result.to_json()
+
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8000)
