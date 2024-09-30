@@ -38,31 +38,64 @@ import logging
 
 # key = AIzaSyAi2Zm9LEW2z3dJJbfgtC-V8eAQw0trnqM
 
+# 1. search_videos_list에서 video_id를 불러오는 함수
+def get_video_ids_from_search_videos_list():
+
+    # videos.db에서 video_id 가져오기
+    db_folder_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),'db',"videos.db")
+    conn = sqlite3.connect(db_folder_path)
+    
+    query = "SELECT id FROM videos"  # videos 테이블에서 id (video_id) 가져오기
+    video_ids_df = pd.read_sql(query, conn)
+    
+    conn.close()  # DB 연결 종료
+    return video_ids_df['id'].tolist()  # video_id 리스트로 반환
+
+#API_KEY = 'AIzaSyAi2Zm9LEW2z3dJJbfgtC-V8eAQw0trnqM'  # YouTube Data API 키
+  #      url = f'https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id={VIDEO_ID}&key={API_KEY}'
 
 def search_videos_sessions():
-    try:
-        # YouTube API 정보
-        API_KEY = 'AIzaSyAi2Zm9LEW2z3dJJbfgtC-V8eAQw0trnqM'  # API 키 입력
-        VIDEO_ID = 'video_list'  # 조회할 비디오의 ID 영상 
-        #목록db를 받아서 for문으로 돌려서 조건에 맞게 진행
-        #videos.db의 id를 연동해서 id가 들어갈수 있게 진행 
 
-        # YouTube Data API 요청 URL
-        url = f'https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id={VIDEO_ID}&key={API_KEY}'
+    # video_id 리스트 가져오기 (search_videos_list의 결과 사용)
+    video_ids = get_video_ids_from_search_videos_list()  # 여기서 video_ids 리스트를 불러옴
+    
+    API_KEY = 'AIzaSyAi2Zm9LEW2z3dJJbfgtC-V8eAQw0trnqM'  # YouTube Data API 키
+    
+     # SQLite DB 연결
+    conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'db', "videos_sessions.db"))  # DB 파일 생성 또는 연결
+    cursor = conn.cursor()
 
-        # API 호출
-        response = requests.get(url)
-        if response.status_code == 200:
+     # 테이블 생성
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS videos_sessions (
+        video_id TEXT,
+        view_count INTEGER,
+        like_count INTEGER,
+        dislike_count INTEGER,
+        comment_count INTEGER,
+        collected_at TEXT
+    )
+    ''')
+
+    for video_id in video_ids:  # 각 video_id에 대해 반복
+        # API 호출 URL 설정
+        url = f'https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id={video_id}&key={API_KEY}'
+
+        try:
+            response = requests.get(url)
+            if response.status_code != 200:
+                logging.error(f"API 호출 실패: 상태 코드 {response.status_code}")
+                continue  # 다음 video_id로 넘어감
+
             data = response.json()
 
             # 데이터 파싱
             video_info = data['items'][0]
-            video_id = video_info['id']
             view_count = video_info['statistics']['viewCount']
             like_count = video_info['statistics']['likeCount']
             dislike_count = video_info['statistics'].get('dislikeCount', 0)  # dislikeCount가 없으면 0으로 표기
             comment_count = video_info['statistics']['commentCount']
-            collected_at = datetime.now().strftime('%Y-%m-%d')
+            collected_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
             # 로그 출력
             logging.info(f"Video ID: {video_id}")
@@ -72,45 +105,69 @@ def search_videos_sessions():
             logging.info(f"댓글 수: {comment_count}")
             logging.info(f"세션 수집 날짜: {collected_at}")
 
-            # SQLite DB 연결
-            conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(__file__)),'db',"videos_sessions.db"))  # DB 파일 생성 또는 연결
-            cursor = conn.cursor()
+            # 영상별 세션 데이터 수 확인
+            query = "SELECT COUNT(*) FROM videos_sessions WHERE video_id = ?"
+            cursor.execute(query, (video_id,))
+            session_count = cursor.fetchone()[0]
 
-            # 테이블 생성
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS videos_sessions (
-                video_id TEXT,
-                view_count INTEGER,
-                like_count INTEGER,
-                dislike_count INTEGER,
-                comment_count INTEGER,
-                collected_at TEXT
-            )
-            ''')
+            # 조건 1: 영상별로 세션 데이터가 5개 이하
+            if session_count < 5:
+                # 데이터 삽입
+                cursor.execute('''
+                INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at))
+                logging.info("데이터베이스에 성공적으로 데이터가 저장되었습니다.")
+            else:
+                # 조건 3: 최근 세션 데이터 2개를 가져옴
+                query = "SELECT view_count FROM videos_sessions WHERE video_id = ? ORDER BY collected_at DESC LIMIT 2"
+                cursor.execute(query, (video_id,))
+                recent_sessions = cursor.fetchall()
 
-            # 데이터 삽입
-            cursor.execute('''
-            INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at))
+                if len(recent_sessions) == 2:  # 최근 세션 데이터가 2개 있는 경우
+                    previous_view_count_1 = recent_sessions[0][0]
+                    previous_view_count_2 = recent_sessions[1][0]
+                    increase = previous_view_count_1 - previous_view_count_2
 
-            # 변경 사항 저장 및 연결 종료
-            conn.commit()
-            conn.close()
+                    # 현재 조회수의 10% 계산
+                    ten_percent_of_current = int(view_count * 0.1)
 
-            print("데이터베이스에 성공적으로 데이터가 저장되었습니다.")
-        else:
-            logging.error(f"API 호출 실패: 상태 코드 {response.status_code}")
+                    # 조건 3: 상승폭이 현재 조회수의 10% 이하인 경우
+                    if increase <= ten_percent_of_current:
+                        logging.info(f"Video ID: {video_id}는 수집하지 않음. 상승폭: {increase}, 현재 조회수의 10%: {ten_percent_of_current}")
+                    else:
+                        # 데이터 삽입
+                        cursor.execute('''
+                        INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at))
+                        logging.info("데이터베이스에 성공적으로 데이터가 저장되었습니다.")
+                # else:
+                #     # 세션 데이터가 없는 경우 (조건 3에 해당)
+                #     cursor.execute('''
+                #     INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at)
+                #     VALUES (?, ?, ?, ?, ?, ?)
+                #     ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at))
+                #     logging.info("세션 데이터가 없으므로, 데이터를 수집하였습니다.")
+
+        except requests.exceptions.RequestException as e:
+            logging.error(f"API 호출 중 오류 발생: {e}")
+        except sqlite3.Error as e:
+            logging.error(f"SQLite 데이터베이스 오류 발생: {e}")
+        except Exception as e:
+            logging.error(f"예상치 못한 오류 발생: {e}")
+
+    # 변경 사항 저장 및 연결 종료
+    conn.commit()
+    conn.close()
+
+    #ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
+
+    print("데이터베이스에 성공적으로 데이터가 저장되었습니다.")
     
-    except requests.exceptions.RequestException as e:
-        logging.error(f"API 호출 중 오류 발생: {e}")
-    except sqlite3.Error as e:
-        logging.error(f"SQLite 데이터베이스 오류 발생: {e}")
-    except Exception as e:
-        logging.error(f"예상치 못한 오류 발생: {e}")
 
 # 함수 실행
-search_videos_sessions()
+#search_videos_sessions()
 
 
 
