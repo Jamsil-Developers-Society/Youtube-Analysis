@@ -1,2 +1,3 @@
 SELECT id, categoryId, publishedAt, channelId, title, description
-FROM videos;
+FROM videos
+WHERE id = {{ video_id }};
