@@ -31,7 +31,7 @@ def search_videos_list():
     db_folder_path = os.path.join(os.path.dirname(__file__), '..', 'db')  # db 폴더의 경로
     db_path = os.path.join(db_folder_path, 'videos.db')  # db 폴더 안의 videos.db 경로
     conn = sqlite3.connect(db_path)
-    rows = pd.DataFrame(columns=['id', 'categoryId', 'publishedAt', 'channelId', 'title', 'description'])
+    rows = pd.DataFrame(columns=['id', 'categoryId', 'publishedAt', 'channelId', 'title', 'description', 'activation'])
 
     # 테이블이 이미 존재하는 경우 기존 데이터를 불러옴
     query = "SELECT id FROM videos"
@@ -58,6 +58,12 @@ def search_videos_list():
             # 이미 존재하는 비디오인지 확인
             if video_id in existing_videos['id'].values:
                 logger.info(f"이미 존재하는 비디오 ID: {video_id}, 추가하지 않음.")
+
+                # activation 컬럼이 0인 경우 1로 변경
+                if existing_video['activation'].values[0] == 0:
+                    existing_videos.loc[existing_videos['id'] == video_id, 'activation'] = 1
+                    logger.info(f"비디오 ID: {video_id}의 activation 값을 0에서 1로 변경함.") 
+
                 continue  # 이미 존재하는 비디오는 추가하지 않음
 
             category_id = video_list['items'][i]['snippet'].get('categoryId', None)
@@ -65,6 +71,7 @@ def search_videos_list():
             channel_id = video_list['items'][i]['snippet']['channelId']
             title = video_list['items'][i]['snippet']['title']
             description = video_list['items'][i]['snippet']['description']
+            activation = 1
 
             new_row = pd.DataFrame({
                 "id": [video_id],
@@ -73,11 +80,12 @@ def search_videos_list():
                 "channelId": [channel_id],
                 "title": [title],
                 "description": [description], 
+                "activation" : [int(activation)],
             })
             rows = pd.concat([rows, new_row], ignore_index=True)
 
         logging.info(f"가져온 데이터: \n{rows}")
-
+        
         if not rows.empty:
             rows.to_sql('videos', conn, if_exists='append', index=False)
             logger.info(f"{len(rows)}개의 비디오 데이터를 추가했습니다. ")
