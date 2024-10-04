@@ -44,20 +44,18 @@ def get_video_ids_from_search_videos_list():
     # videos.db에서 video_id 가져오기
     db_folder_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),'db',"videos.db")
     conn = sqlite3.connect(db_folder_path)
-    
-    query = "SELECT id FROM videos"  # videos 테이블에서 id (video_id) 가져오기
+
+    # id (video_id)와 activation 열 가져오기
+    query = "SELECT id, activation FROM videos"  # videos 테이블에서 id (video_id) 가져오기
     video_ids_df = pd.read_sql(query, conn)
     
     conn.close()  # DB 연결 종료
-    return video_ids_df['id'].tolist()  # video_id 리스트로 반환
-
-#API_KEY = 'AIzaSyAi2Zm9LEW2z3dJJbfgtC-V8eAQw0trnqM'  # YouTube Data API 키
-  #      url = f'https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id={VIDEO_ID}&key={API_KEY}'
+    return video_ids_df  # DataFrame 반환
 
 def search_videos_sessions():
 
     # video_id 리스트 가져오기 (search_videos_list의 결과 사용)
-    video_ids = get_video_ids_from_search_videos_list()  # 여기서 video_ids 리스트를 불러옴
+    video_data = get_video_ids_from_search_videos_list()  # 리스트를 불러옴
     
     API_KEY = 'AIzaSyAi2Zm9LEW2z3dJJbfgtC-V8eAQw0trnqM'  # YouTube Data API 키
     
@@ -73,11 +71,15 @@ def search_videos_sessions():
         like_count INTEGER,
         dislike_count INTEGER,
         comment_count INTEGER,
-        collected_at TEXT
+        collected_at TEXT,
+        activation INTEGER
     )
     ''')
 
-    for video_id in video_ids:  # 각 video_id에 대해 반복
+    for index, row in video_data.iterrows():  # video_data의 각 row에 대해 반복
+        video_id = row['id']
+        activation = row['activation']  # activation 값 가져오기
+
         # API 호출 URL 설정
         url = f'https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id={video_id}&key={API_KEY}'
 
@@ -104,19 +106,21 @@ def search_videos_sessions():
             logging.info(f"싫어요 수: {dislike_count}")
             logging.info(f"댓글 수: {comment_count}")
             logging.info(f"세션 수집 날짜: {collected_at}")
+            logging.info(f"Activation: {activation}")
+
 
             # 영상별 세션 데이터 수 확인
             query = "SELECT COUNT(*) FROM videos_sessions WHERE video_id = ?"
             cursor.execute(query, (video_id,))
             session_count = cursor.fetchone()[0]
 
-            # 조건 1: 영상별로 세션 데이터가 5개 이하
-            if session_count < 5:
+            # 조건 1: 영상별로 세션 데이터가 2개 이하       
+            if session_count < 2:
                 # 데이터 삽입
                 cursor.execute('''
-                INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at))
+                INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at, activation)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at, activation))
                 logging.info("데이터베이스에 성공적으로 데이터가 저장되었습니다.")
             else:
                 # 조건 3: 최근 세션 데이터 2개를 가져옴
@@ -132,14 +136,25 @@ def search_videos_sessions():
                     # 현재 조회수의 10% 계산
                     ten_percent_of_current = int(view_count * 0.1)
 
+                    #10%이하면 O->X
+
                     # 조건 3: 상승폭이 현재 조회수의 10% 이하인 경우
                     if increase <= ten_percent_of_current:
                         logging.info(f"Video ID: {video_id}는 수집하지 않음. 상승폭: {increase}, 현재 조회수의 10%: {ten_percent_of_current}")
+
+                         # 해당 video_id의 activation 값을 0으로 업데이트
+                        cursor.execute('''
+                        UPDATE videos_sessions
+                        SET activation = 0
+                        WHERE video_id = ? AND collected_at = (SELECT MAX(collected_at) FROM videos_sessions WHERE video_id = ?)
+                        ''', (video_id, video_id))
+                        logging.info(f"Video ID: {video_id}의 activation 값을 0으로 수정하였습니다.")
+                        
                     else:
                         # 데이터 삽입
                         cursor.execute('''
-                        INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at, activation)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
                         ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at))
                         logging.info("데이터베이스에 성공적으로 데이터가 저장되었습니다.")
                 # else:
@@ -160,8 +175,6 @@ def search_videos_sessions():
     # 변경 사항 저장 및 연결 종료
     conn.commit()
     conn.close()
-
-    #ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ
 
     print("데이터베이스에 성공적으로 데이터가 저장되었습니다.")
     
