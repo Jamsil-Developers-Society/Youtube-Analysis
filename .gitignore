@@ -34,6 +34,7 @@ youtube-analysis-frontend/yarn-error.log*
 /airflow/*
 !/airflow/dags/
 !/airflow/docker-compose.yaml
+!/airflow/Dockerfile
 /airflow/dags/__pycache__
 # /airflow/dags/*.json
 !/airflow/db/
