@@ -1,6 +1,5 @@
 import os
 import json
-import requests
 import asyncio
 import aiohttp  # 비동기 HTTP 요청을 위한 라이브러리
 import pandas as pd
