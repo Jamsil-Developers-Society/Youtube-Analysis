@@ -25,16 +25,9 @@ async def search_videos_with_category_name():
 
     df1 = pd.read_sql(query1, conn1)
     df2 = pd.read_sql(query2, conn2)
-    # df2.drop(columns='index',inplace=True)
-
-    # logging.info(os.path.join(os.path.dirname(os.path.dirname(__file__)),"..",'airflow','db','videos.db'))
-    # conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(__file__)),"..",'airflow','db','videos.db'))
-    # result = pd.read_sql(query, conn)
     
     result = df1.merge(df2, how="left", left_on="categoryId", right_on="category_id")
     result = result.groupby('category_title').size().reset_index(name='count')
-    # result.rename(columns={"category_title": "id","count":"value"}, inplace=True)
-    # result.to_csv("asdfg3.csv")
 
     return result.to_json(orient='records')
 
