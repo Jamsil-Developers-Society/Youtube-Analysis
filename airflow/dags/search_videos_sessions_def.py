@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import logging
+import sys
 
 # Airflow에서 사용할 기본 인수
 default_args = {
@@ -15,7 +16,7 @@ default_args = {
 
 # DAG 생성
 with DAG(
-    'async_video_data_dag',
+    'search_videos_sessions',
     default_args=default_args,
     description='Fetch video data asynchronously and store in DB',
     schedule_interval=timedelta(days=1),
@@ -23,8 +24,10 @@ with DAG(
     catchup=False,
 ) as dag:
 
+
     # search_videos_sessions.py의 비동기 래퍼 함수 불러오기
-    from search_videos_sessions import run_search_videos_sessions
+    from search_videos_sessions_func import run_search_videos_sessions
+    
 
     # PythonOperator로 비동기 래퍼 함수 실행
     fetch_video_data = PythonOperator(
