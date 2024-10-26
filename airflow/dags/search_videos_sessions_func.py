@@ -13,7 +13,7 @@ def get_video_ids_from_search_videos_list():
     db_folder_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'db', "videos.db")
     conn = sqlite3.connect(db_folder_path)
     
-    query = "SELECT id, activation FROM videos"  # video_id와 activation 값 가져오기
+    query = "SELECT id FROM videos WHERE activation = 1"  # video_id와 activation 값 가져오기
     video_ids_df = pd.read_sql(query, conn)
     
     conn.close()
@@ -39,11 +39,12 @@ async def fetch_video_data(session: ClientSession, video_id: str, API_KEY: str):
 async def collect_video_sessions(video_data, API_KEY, conn):
     async with ClientSession() as session:
         tasks = []
+
+        logging.info(f'video_data : {video_data}')
         
         # video_data의 각 row에 대해 비동기 요청 작업을 생성
         for index, row in video_data.iterrows():
             video_id = row['id']
-            activation = row['activation']
             tasks.append(fetch_video_data(session, video_id, API_KEY))
 
         # 모든 작업을 비동기적으로 실행하고 결과를 기다림
@@ -71,9 +72,9 @@ async def collect_video_sessions(video_data, API_KEY, conn):
                 # 조건 1: 영상별로 세션 데이터가 2개 이하인 경우
                 if session_count < 2:
                     cursor.execute('''
-                        INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at, activation)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at, activation))
+                        INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at))
                 else:
                     # 조건 3: 최근 세션 데이터 2개를 가져옴
                     query = "SELECT view_count FROM videos_sessions WHERE video_id = ? ORDER BY collected_at DESC LIMIT 2"
@@ -87,15 +88,15 @@ async def collect_video_sessions(video_data, API_KEY, conn):
 
                         ten_percent_of_current = int(view_count * 0.1)
 
-                        # 조건 3: 상승폭이 현재 조회수의 10% 이하인 경우, activation 값을 0으로 업데이트
+                        # 조건 3: 상승폭이 현재 조회수의 10% 이하인 경우, activation 값을 0으로 업데이트 videos.db 안에 있는 activation 값을 업데이트
                         if increase <= ten_percent_of_current:
-                            query = "UPDATE videos_sessions SET activation = 0 WHERE video_id = ?"
+                            query = "UPDATE videos SET activation = 0 WHERE video_id = ?"
                             cursor.execute(query, (video_id,))
                         else:
                             cursor.execute('''
-                                INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at, activation)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
-                            ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at, activation))
+                                INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            ''', (video_id, view_count, like_count, dislike_count, comment_count, collected_at))
 
             except Exception as e:
                 logging.error(f"예상치 못한 오류 발생: {e}")
@@ -121,8 +122,7 @@ async def search_videos_sessions():
             like_count INTEGER,
             dislike_count INTEGER,
             comment_count INTEGER,
-            collected_at TEXT,
-            activation INTEGER
+            collected_at TEXT
         )
     ''')
 
