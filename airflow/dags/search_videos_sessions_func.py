@@ -1,7 +1,7 @@
 import os
 import json
 import asyncio
-import aiohttp  # 비동기 HTTP 요청을 위한 라이브러리
+import aiohttp   # 비동기 HTTP 요청을 위한 라이브러리
 import pandas as pd
 import sqlite3
 import logging
@@ -13,7 +13,7 @@ def get_video_ids_from_search_videos_list():
     db_folder_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'db', "videos.db")
     conn = sqlite3.connect(db_folder_path)
     
-    query = "SELECT id FROM videos WHERE activation = 1"  # video_id와 activation 값 가져오기
+    query = "SELECT id FROM videos WHERE activation = 1"  # activation이 1인 video id 수집 
     video_ids_df = pd.read_sql(query, conn)
     
     conn.close()
@@ -39,12 +39,11 @@ async def fetch_video_data(session: ClientSession, video_id: str, API_KEY: str):
 async def collect_video_sessions(video_data, API_KEY, conn):
     async with ClientSession() as session:
         tasks = []
-
-        logging.info(f'video_data : {video_data}')
         
         # video_data의 각 row에 대해 비동기 요청 작업을 생성
         for index, row in video_data.iterrows():
             video_id = row['id']
+            activation = row['activation']
             tasks.append(fetch_video_data(session, video_id, API_KEY))
 
         # 모든 작업을 비동기적으로 실행하고 결과를 기다림
@@ -88,10 +87,14 @@ async def collect_video_sessions(video_data, API_KEY, conn):
 
                         ten_percent_of_current = int(view_count * 0.1)
 
-                        # 조건 3: 상승폭이 현재 조회수의 10% 이하인 경우, activation 값을 0으로 업데이트 videos.db 안에 있는 activation 값을 업데이트
+                        # 조건 3: 상승폭이 현재 조회수의 10% 이하인 경우, videos.db의 activation 값을 0으로 업데이트
                         if increase <= ten_percent_of_current:
-                            query = "UPDATE videos SET activation = 0 WHERE video_id = ?"
-                            cursor.execute(query, (video_id,))
+                            videos_db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'db', "videos.db")
+                            videos_conn = sqlite3.connect(videos_db_path)
+                            videos_cursor = videos_conn.cursor()
+                            videos_cursor.execute("UPDATE videos SET activation = 0 WHERE id = ?", (video_id,))
+                            videos_conn.commit()
+                            videos_conn.close()
                         else:
                             cursor.execute('''
                                 INSERT INTO videos_sessions (video_id, view_count, like_count, dislike_count, comment_count, collected_at)
@@ -135,3 +138,5 @@ async def search_videos_sessions():
 # 함수 실행
 def run_search_videos_sessions():
     asyncio.run(search_videos_sessions())
+
+#activation row 지우기 / 조건에 부합하면 video.db에 연결, activation 0 으로 전환하기
