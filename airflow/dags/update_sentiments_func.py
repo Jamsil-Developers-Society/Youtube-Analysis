@@ -55,7 +55,7 @@ async def update_comments_sentiment(conn):
     comments_to_analyze = cursor.fetchall()
     logging.info(f"Number of comments to analyze: {len(comments_to_analyze)}")
 
-    semaphore = asyncio.Semaphore(5)  # 동시에 실행할 비동기 작업 수를 5개로 제한
+    semaphore = asyncio.Semaphore(2)  # 동시에 실행할 비동기 작업 수를 5개로 제한
 
     async def limited_analyze(comment_id, text):
         async with semaphore:  # 동시 작업 제한
