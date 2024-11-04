@@ -31,22 +31,15 @@ def analyze_sentiment(text):
 # 비동기 댓글 분석 및 업데이트 함수
 async def analyze_and_update_sentiment(conn, comment_id, text):
     try:
-        
-        logging.info(f"1")
+        logging.info(f"Starting analysis for Comment ID: {comment_id}")
         # 감성 분석 수행
         sentiment_result = await asyncio.get_running_loop().run_in_executor(
             None, analyze_sentiment, text
         )   
-        logging.info(f"2")
         # 분석 결과를 DB에 업데이트
-        db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'db', "comments.db")
-        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute("UPDATE comments SET sentiment = ? WHERE comment_id = ?", (sentiment_result, comment_id))
-
         conn.commit()
-        logging.info(f"3")
-        #conn.close()
         logging.info(f"Comment ID: {comment_id}, Sentiment: {sentiment_result}")
 
     except Exception as e:
@@ -54,28 +47,22 @@ async def analyze_and_update_sentiment(conn, comment_id, text):
 
 # 비동기 댓글 감성 분석 및 업데이트 처리 함수
 async def update_comments_sentiment(conn):
-    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'db', "comments.db")
-    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    logging.info(f"4")
     
     # sentiment가 None인 댓글 불러오기
     query = "SELECT comment_id, text FROM comments WHERE sentiment IS NULL"
     cursor.execute(query)
     comments_to_analyze = cursor.fetchall()
-    logging.info(f"ffffggggg")
-    #conn.close()  # 댓글 목록을 가져온 후 커넥션 종료
+    logging.info(f"Number of comments to analyze: {len(comments_to_analyze)}")
 
     semaphore = asyncio.Semaphore(5)  # 동시에 실행할 비동기 작업 수를 5개로 제한
 
+    async def limited_analyze(comment_id, text):
+        async with semaphore:  # 동시 작업 제한
+            await analyze_and_update_sentiment(conn, comment_id, text)
     
     # 각 댓글에 대해 비동기 분석 및 DB 업데이트
-    tasks = []
-
-    for comment_id, text in comments_to_analyze:
-        logging.info(f"{comment_id} for")
-        tasks.append(analyze_and_update_sentiment(conn, comment_id, text))
-    
+    tasks = [limited_analyze(comment_id, text) for comment_id, text in comments_to_analyze]
 
     # 비동기 작업 실행
     await asyncio.gather(*tasks)
