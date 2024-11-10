@@ -43,7 +43,6 @@ async def collect_video_sessions(video_data, API_KEY, conn):
         # video_data의 각 row에 대해 비동기 요청 작업을 생성
         for index, row in video_data.iterrows():
             video_id = row['id']
-            activation = row['activation']
             tasks.append(fetch_video_data(session, video_id, API_KEY))
 
         # 모든 작업을 비동기적으로 실행하고 결과를 기다림
