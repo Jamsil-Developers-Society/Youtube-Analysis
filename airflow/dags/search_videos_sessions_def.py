@@ -16,11 +16,11 @@ default_args = {
 
 # DAG 생성
 with DAG(
-    'search_videos_sessions',
+    'search_videos_sessions_async',
     default_args=default_args,
     description='Fetch video data asynchronously and store in DB',
     schedule_interval=timedelta(days=1),
-    start_date=datetime(2023, 1, 1),
+    start_date=datetime(2024, 11, 17),
     catchup=False,
 ) as dag:
 

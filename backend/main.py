@@ -150,6 +150,111 @@ async def search_video_sessions():
 
     return result.to_json(orient='records')
 
+@app.get("/api/sentiment/1")
+async def search_sentiment_1():
+    # template1 = env.get_template(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sql', 'select_videos.sql'))
+    # template2 = env.get_template(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sql', 'select_categories.sql'))
+    # template3 = env.get_template(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sql', 'select_comments_sentiment.sql'))
+
+    # query1 = template1.render()
+    # query2 = template2.render()
+    # query3 = template3.render()
+
+    query1 = '''
+    SELECT id, categoryId, publishedAt, channelId, title, description
+    FROM videos;
+    '''
+    query2 = '''
+    SELECT category_id, category_title
+    FROM categories;
+    '''
+    query3 = '''
+    SELECT video_id, sentiment
+    FROM comments
+    WHERE sentiment IS NOT NULL;
+    '''
+
+    conn1 = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'airflow', 'db', 'videos.db'))
+    conn2 = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'airflow', 'db', 'categories.db'))
+    conn3 = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'airflow', 'db', 'comments.db'))
+
+    df1 = pd.read_sql(query1, conn1)
+    df2 = pd.read_sql(query2, conn2)
+    df3 = pd.read_sql(query3, conn3)
+    
+    result = df3.merge(df1, how="left", left_on="video_id", right_on="id").merge(df2, how='left', left_on='categoryId', right_on="category_id")
+    # result.to_csv('gfdsa.csv')
+    result['sentiment_score'] = result['sentiment'].apply(
+        lambda x: -1 if x == 'negative' else 1 if x == 'positive' else 0
+    )
+    result = result.groupby('category_title').agg(sentiment_score=('sentiment_score', 'sum')).reset_index()
+
+    return result.to_json(orient='records')
+
+@app.get("/api/sentiment/2")
+async def search_sentiment_2():
+    # template1 = env.get_template(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sql', 'select_videos.sql'))
+    # template2 = env.get_template(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sql', 'select_categories.sql'))
+    # template3 = env.get_template(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sql', 'select_comments_sentiment.sql'))
+
+    # query1 = template1.render()
+    # query2 = template2.render()
+    # query3 = template3.render()
+
+    query1 = '''
+    SELECT id, categoryId, publishedAt, channelId, title, description
+    FROM videos;
+    '''
+    query2 = '''
+    SELECT category_id, category_title
+    FROM categories;
+    '''
+    query3 = '''
+    SELECT video_id, sentiment
+    FROM comments
+    WHERE sentiment IS NOT NULL;
+    '''
+
+    query4 = '''
+    SELECT video_id, view_count, like_count, dislike_count
+    FROM (
+    SELECT video_id, view_count, like_count, dislike_count, ROW_NUMBER() OVER (PARTITION BY video_id ORDER BY collected_at DESC) AS rownum
+    FROM videos_sessions
+    ) AS A
+    WHERE rownum = 1;
+    '''
+
+    conn1 = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'airflow', 'db', 'videos.db'))
+    conn2 = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'airflow', 'db', 'categories.db'))
+    conn3 = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'airflow', 'db', 'comments.db'))
+    conn4 = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'airflow', 'db', 'videos_sessions.db'))
+
+    df1 = pd.read_sql(query1, conn1)
+    df2 = pd.read_sql(query2, conn2)
+    df3 = pd.read_sql(query3, conn3)
+    df4 = pd.read_sql(query4, conn4)
+    
+    result = df3.merge(df4, how="left", left_on="video_id", right_on="video_id").merge(df1, how="left", left_on="video_id", right_on="id").merge(df2, how='left', left_on='categoryId', right_on="category_id")
+    
+    result['sentiment_score'] = result['sentiment'].apply(
+        lambda x: -1 if x == 'negative' else 1 if x == 'positive' else 0
+    )
+    # result.to_csv('gfdsa.csv')
+    # Step 1: video_id별로 그룹화하여 조회수와 감성 점수 집계
+    result = result.groupby("video_id").agg(
+        category_title=("category_title", "first"),  # 카테고리 가져오기
+        avg_view_count=("view_count", "mean"),      # 조회수 평균 (같은 값이므로 그대로 유지)
+        total_sentiment_score=("sentiment_score", "sum")  # 감성 점수 합계
+    ).reset_index()
+
+    # Step 2: category_title별로 다시 그룹화하여 최종 집계
+    result = result.groupby("category_title").agg(
+        avg_view_count=("avg_view_count", "mean"),       # 카테고리별 조회수 합계
+        total_sentiment_score=("total_sentiment_score", "sum")  # 카테고리별 감성 점수 합계
+    ).reset_index()
+    # result.to_csv('gfdsa.csv')
+    return result.to_json(orient='records')
+
 # CORS 설정 추가
 app.add_middleware(
     CORSMiddleware,

@@ -1,9 +1,14 @@
 import { Box, Grid2, Paper, Typography } from "@mui/material";
 import Progress from "./Progress";
 import Bumpchart from "./Bumpchart";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Piechart from "./Piechart";
 import Linechart from "./Linechart";
+import {
+  selectCommentSentimentData,
+  selectSentimentViewCountData,
+} from "../services/videoAPI";
+import Barchart from "./Barchart";
 
 function EmotionAnalysisPage() {
   const [arrEmotionAnalysisData1, setEmotionAnalysisData1] = useState([
@@ -283,7 +288,32 @@ function EmotionAnalysisPage() {
       ],
     },
   ]);
-  const [progress, setProgress] = useState(false);
+  const [progress, setProgress] = useState(true);
+
+  useEffect(() => {
+    console.log("데이터 로딩 중..");
+    fn();
+    setProgress(false);
+  }, []);
+
+  const fn = () => {
+    selectCommentSentimentData().then((res) => {
+      // console.log(res?.data);
+      const data = JSON.parse(res.data).map((item) => ({
+        id: item.category_title,
+        value: item.sentiment_score,
+      }));
+      setEmotionAnalysisData1(data);
+    });
+    selectSentimentViewCountData().then((res) => {
+      const data = JSON.parse(res.data).map((item) => ({
+        id: item.category_title,
+        data: { x: item.avg_view_count, y: item.total_sentiment_score },
+      }));
+      setEmotionAnalysisData2(data);
+    });
+    setProgress(false);
+  };
 
   return (
     <>
@@ -291,13 +321,14 @@ function EmotionAnalysisPage() {
       <Box xs={{ p: 2 }}>
         <Grid2 container spacing={2} sx={{ p: 2 }}>
           <Grid2 size={{ xs: 6, md: 6 }}>
-            <Paper>
-              <Piechart data={arrEmotionAnalysisData1} height={"500px"} />
+            <Paper sx={{ height: "500px" }}>
+              <Barchart data={arrEmotionAnalysisData1} height={"500px"} />
             </Paper>
           </Grid2>
           <Grid2 size={{ xs: 6, md: 6 }}>
             <Paper>
               <Linechart data={arrEmotionAnalysisData2} height={"500px"} />
+              {console.log(arrEmotionAnalysisData2)}
             </Paper>
           </Grid2>
         </Grid2>

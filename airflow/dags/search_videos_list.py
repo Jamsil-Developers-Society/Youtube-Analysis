@@ -93,7 +93,7 @@ def search_videos_list():
             logger.info("새로 추가할 비디오 데이터가 없습니다.")
         
     except Exception as e:
-        logger.error(e);
+        logger.error(e)
     
     finally:
         conn.close()
@@ -105,7 +105,7 @@ def search_videos_list():
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
-    'start_date': datetime(2024, 9, 24),
+    'start_date': datetime(2024, 11, 17),
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 0,

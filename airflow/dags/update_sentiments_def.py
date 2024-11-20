@@ -22,7 +22,7 @@ default_args = {
     'depends_on_past': False,
     'email_on_failure': False,
     'email_on_retry': False,
-    'retries': 1,
+    'retries': 0,
     'retry_delay': timedelta(minutes=5),
 }
 
@@ -31,12 +31,12 @@ with DAG(
     default_args=default_args,
     description='Process sentiment data asynchronously',
     schedule_interval=timedelta(days=1),
-    start_date=datetime(2024, 11, 3),
+    start_date=datetime(2024, 11, 14),
     catchup=False,
 ) as dag:
 
     process_comments_task = PythonOperator(
-        task_id='process_comments_task',
+        task_id='update_sentiments',
         python_callable=run_process_comments,
     )
 

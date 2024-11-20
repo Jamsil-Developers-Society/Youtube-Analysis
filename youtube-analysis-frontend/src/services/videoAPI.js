@@ -137,3 +137,41 @@ export function selectGenreRateData() {
       });
   });
 }
+
+export function selectCommentSentimentData() {
+  return new Promise((resolve, reject) => {
+    axios({
+      method: "GET",
+      url: apiURL + "/sentiment/1",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+      .then((res) => {
+        resolve(res);
+      })
+      .catch((error) => {
+        reject(error);
+      });
+  });
+}
+
+export function selectSentimentViewCountData() {
+  return new Promise((resolve, reject) => {
+    axios({
+      method: "GET",
+      url: apiURL + "/sentiment/2",
+
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+      .then((res) => {
+        resolve(res);
+      })
+      .catch((error) => {
+        reject(error);
+      });
+  });
+}
